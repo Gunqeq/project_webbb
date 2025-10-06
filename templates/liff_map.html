@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <title>LIFF Map</title>
+  <style>
+    #map {
+      height: 100vh;
+      width: 100%;
+    }
+  </style>
+  <!-- โหลด Google Maps API (ใส่ API KEY ของคุณแทน YOUR_API_KEY) -->
+  <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY"></script>
+</head>
+<body>
+  <div id="map"></div>
+
+  <script>
+    // Flask ส่ง places มาในรูปแบบ JSON
+    const PLACES = {{ places | tojson | safe }};
+
+    function initMap() {
+      if (!PLACES || PLACES.length === 0) {
+        alert("ไม่พบสถานที่");
+        return;
+      }
+
+      // กำหนดศูนย์กลางเป็นสถานที่แรก
+      const center = { lat: PLACES[0].lat, lng: PLACES[0].lng };
+      const map = new google.maps.Map(document.getElementById("map"), {
+        zoom: 12,
+        center: center,
+      });
+
+      // ปักหมุดทุกสถานที่
+      PLACES.forEach(place => {
+        new google.maps.Marker({
+          position: { lat: place.lat, lng: place.lng },
+          map: map,
+          title: place.name,
+        });
+      });
+    }
+
+    // โหลดแผนที่
+    window.onload = initMap;
+  </script>
+</body>
+</html>
