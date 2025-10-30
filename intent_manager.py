@@ -29,15 +29,23 @@ INTENT_CLASSIFICATION_PROMPT = """
 
 วิเคราะห์ข้อความของผู้ใช้และจำแนกเป็น intent ประเภทใดประเภทหนึ่ง พร้อมดึงข้อมูลสำคัญออกมา
 
+
+
 **Intent Types:**
 1. GREETING - ทักทาย (สวัสดี, หวัดดี, hi, hello, เริ่ม)
 2. ROUTE_REQUEST - ขอเส้นทาง (จาก A ไป B, เส้นทาง)
 3. PLACE_SEARCH - ค้นหาสถานที่ในจังหวัด (ที่เที่ยวในจังหวัดX, ที่ไปX)
-4. REVIEW_REQUEST - ขอรีวิว (รีวิว X, X เป็นยังไง, รีวิว 1, รีวิว 2)
-5. FILTER_REQUEST - กรองด้วยเงื่อนไข (มีคาเฟ่ไหม, ที่มีธรรมชาติ, แบบมีร้านอาหาร, เลือก X)
-6. NEXT_PLACE - ถามว่าไปต่อไหนดี (ไปต่อไหนดี, แล้วต่อไป, แวะไหนต่อ)
-7. GENERAL_QUESTION - ถามคำถามทั่วไป (ฤดูไหนดี, ควรไปเมื่อไหร่, ถาม AI:)
+4. REVIEW_REQUEST - ขอรีวิว (รีวิว X, X เป็นยังไง, รีวิว 1, รีวิว 2) หรือพิมชื่อสถานที่โดยตรง
+5. FILTER_REQUEST - กรองด้วยเงื่อนไข (มีคาเฟ่ไหม, ที่มีธรรมชาติ, แบบมีร้านอาหาร, เลือก X) กรอก keywords หรือ categories
+6. NEXT_PLACE - ถามว่าไปต่อไหนดี (ไปต่อไหนดี, แล้วต่อไป, แวะไหนต่อ) เอา Markdown ออก ให้เอาออกให้ได้
+7. GENERAL_QUESTION - ถามคำถามทั่วไป (ฤดูไหนดี, ควรไปเมื่อไหร่, ถาม AI:) 
 8. REFINE_REQUEST - ปรับแก้/เพิ่มเติมเงื่อนไข (เปลี่ยนเป็น, ไม่เอาแล้ว, เพิ่ม, ลด)
+
+ตอบกลับเป็นข้อความปกติ **ไม่ใช้ Markdown เลย**:
+- ไม่ต้องใช้ **ตัวหนา**
+- ไม่ต้องใช้ *ตัวเอียง*
+- ไม่ต้องใช้ list หรือ bullet
+- ตอบเป็นข้อความธรรมดา
 
 **ข้อมูลที่ต้องดึง (Entities):**
 - origin: จุดเริ่มต้น (สำหรับเส้นทาง)
@@ -154,7 +162,7 @@ class IntentManager:
     
     def __init__(self, api_key: str):
         genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel('gemini-2.0-flash-exp')
+        self.model = genai.GenerativeModel('gemini-2.0-flash')
         self.user_states: Dict[str, ConversationState] = {}
     
     def get_state(self, user_id: str) -> ConversationState:
@@ -236,10 +244,26 @@ class IntentManager:
             # เปลี่ยน entities
             state.entities.update(intent_data.get("entities", {}))
         
+# สร้างข้อความสรุปการเปลี่ยนแปลงให้อ่านง่าย
+        entities = state.entities
+        changes = []
+
+        if "province" in entities:
+            changes.append(f"จังหวัด: {entities['province']}")
+
+        if "categories" in entities and entities["categories"]:
+            cat_list = " ,".join(entities["categories"])
+            changes.append(f"หมวดหมู่: {cat_list}")
+
+        if not changes:
+            msg = "ยังไม่มีการเปลี่ยนแปลงครับ"
+        else:
+            msg = "ปรับเงื่อนไขแล้วครับ 🎯\n" + "\n".join(f"• {c}" for c in changes)
+
         return {
             "status": "refined",
-            "current_entities": state.entities,
-            "message": f"ปรับเงื่อนไขแล้วครับ: {json.dumps(state.entities, ensure_ascii=False)}"
+            "current_entities": entities,
+            "message": msg
         }
     
     def reset_user_state(self, user_id: str):

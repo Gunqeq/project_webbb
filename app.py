@@ -1,4 +1,3 @@
-# app.py - Complete Version with Intent System + Web Chat
 """
 LINE Bot + Web Chat with Intent Classification System
 รองรับการสนทนาแบบต่อเนื่องด้วย State Management
@@ -13,6 +12,8 @@ from linebot.v3.messaging.api_client import ApiClient
 from linebot.v3.webhook import WebhookHandler
 from linebot.v3.webhooks import MessageEvent, TextMessageContent
 from linebot.v3.exceptions import InvalidSignatureError
+from utils.maps_utils import directions
+from services.route_service import route_suggestions
 
 import os
 import json
@@ -20,6 +21,10 @@ import random
 from flask import Flask, render_template, request, abort, jsonify, session
 from flask_session import Session
 from dotenv import load_dotenv
+import requests
+from flask import send_file
+from io import BytesIO
+import os
 
 # Import Intent Manager
 from intent_manager import IntentManager, INTENT_TYPES
@@ -60,6 +65,7 @@ Session(app)
 CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
 CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GOOGLE_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY") or os.getenv("GOOGLE_API_KEY")
 
 configuration = Configuration(access_token=CHANNEL_ACCESS_TOKEN)
 api_client = ApiClient(configuration)         
@@ -77,10 +83,10 @@ intent_manager = IntentManager(api_key=GEMINI_API_KEY)
 MAX_PLACES = 5
 
 CATEGORIES = {
-    "ธรรมชาติ": {"emoji": "🏞️", "description": "อุทยาน น้ำตก ภูเขา"},
-    "วัด": {"emoji": "🛕", "description": "วัด โบสถ์ สถานที่ศักดิ์สิทธิ์"},
-    "คาเฟ่": {"emoji": "☕", "description": "คาเฟ่ เบเกอรี่"},
-    "ร้านอาหาร": {"emoji": "🍽️", "description": "ร้านอาหาร อาหารท้องถิ่น"},
+    "ธรรมชาติ": {"emoji": "🏞️", "description": "national park waterfall mountain beach forest nature อุทยาน น้ำตก ภูเขา ป่า ชายหาด สวนสัตว์"},
+    "วัด": {"emoji": "🛕", "description": "temple wat mosque church วัด โบสถ์ มัสยิด ศาลเจ้า"},
+    "คาเฟ่": {"emoji": "☕", "description": "cafecoffee bakery คาเฟ่ กาแฟ เบเกอรี่"},
+    "ร้านอาหาร": {"emoji": "🍽️", "description": "restaurant food ร้านอาหาร อาหาร โรงแรม"},
     "แหล่งเรียนรู้": {"emoji": "📚", "description": "พิพิธภัณฑ์ หอศิลป์"},
     "จุดชมวิว": {"emoji": "🌅", "description": "จุดชมวิว ทิวทัศน์"},
     "ชุมชน/ตลาด": {"emoji": "🏪", "description": "ตลาด ชุมชน ห้าง"}
@@ -160,6 +166,10 @@ def extract_quick_replies(quick_reply_obj):
 # ============================================
 # Helper Functions - Response Formatting
 # ============================================
+# ============================================
+# Helper Functions - Response Formatting (UPDATED)
+# ============================================
+
 def format_route_response(origin, destination, route_info, stops, categories):
     """จัดรูปแบบ response สำหรับเส้นทาง"""
     distance = route_info.get("distance_text", "?")
@@ -184,25 +194,43 @@ def format_route_response(origin, destination, route_info, stops, categories):
         for i, stop in enumerate(displayed, 1):
             name = stop.get("name", "?")
             rating = stop.get("rating", "-")
+            reviews_count = stop.get("user_ratings_total", 0)
+            address = stop.get("address", "")
             detour = stop.get("detour_minutes_est")
             
-            rating_text = f"⭐{rating}" if rating else "⭐-"
-            detour_text = f" (+{detour}นาที)" if detour else ""
+            # ชื่อและเรตติ้ง
+            rating_text = f"⭐ {rating}" if rating else "⭐ -"
+            response += f"{i}. {name}\n"
+            response += f"   {rating_text} ({reviews_count} รีวิว)\n"
             
-            response += f"{i}. {name} {rating_text}{detour_text}\n"
+            # ที่อยู่
+            if address:
+                short_address = address[:60] + "..." if len(address) > 60 else address
+                response += f"   📍 {short_address}\n"
             
+            # เวลาเลี่ยงทาง
+            if detour:
+                response += f"   🕐 เลี่ยงทางหลัก +{detour} นาที\n"
+            
+            # หมวดหมู่
             stop_categories = stop.get("categories", [])
             if stop_categories:
                 cat_emojis = [f"{CATEGORIES[cat]['emoji']}" for cat in stop_categories[:2] if cat in CATEGORIES]
                 if cat_emojis:
-                    response += f"   {' '.join(cat_emojis)}\n"
+                    response += f"   {' '.join(cat_emojis)} {', '.join(stop_categories[:2])}\n"
             
-            map_url = stop.get("map_url")
-            if map_url:
-                response += f"   🗺️ {map_url}\n"
+            # อากาศ
+            weather = stop.get("weather", {})
+            if weather and weather.get("temp_c"):
+                temp = weather.get("temp_c")
+                condition = weather.get("condition", "")
+                response += f"   🌡️ {temp}°C {condition}\n"
+            
             response += "\n"
         
-        response += "💡 พิมพ์ 'รีวิว [ชื่อสถานที่]' หรือ '1', '2' เพื่อดูรายละเอียด"
+        response += "💡 คลิกที่การ์ดด้านล่างเพื่อดูรูปภาพและรายละเอียดเพิ่มเติม\n"
+        response += "📱 กดปุ่ม 'แผนที่' เพื่อเปิดใน Google Maps\n"
+        response += "💬 พิมพ์ 'รีวิว [ชื่อสถานที่]' เพื่อออ่านรีวิว AI"
     else:
         response += "ไม่มีสถานที่แวะตามหมวดหมู่ที่เลือก"
     
@@ -222,28 +250,38 @@ def format_place_response(province, items, categories):
     for i, item in enumerate(displayed, 1):
         name = item.get("name", "?")
         rating = item.get("rating", "-")
+        reviews_count = item.get("user_ratings_total", 0)
+        address = item.get("address", "")
         
-        rating_text = f"⭐{rating}" if rating else "⭐-"
-        response += f"{i}. {name} {rating_text}\n"
+        # ชื่อและเรตติ้ง
+        rating_text = f"⭐ {rating}" if rating else "⭐ -"
+        response += f"{i}. {name}\n"
+        response += f"   {rating_text} ({reviews_count} รีวิว)\n"
         
+        # ที่อยู่
+        if address:
+            short_address = address[:60] + "..." if len(address) > 60 else address
+            response += f"   📍 {short_address}\n"
+        
+        # หมวดหมู่
         item_categories = item.get("categories", [])
         if item_categories:
             cat_emojis = [f"{CATEGORIES[cat]['emoji']}" for cat in item_categories[:2] if cat in CATEGORIES]
             if cat_emojis:
-                response += f"   {' '.join(cat_emojis)}\n"
+                response += f"   {' '.join(cat_emojis)} {', '.join(item_categories[:2])}\n"
         
+        # อากาศ
         weather = item.get("weather", {})
         if weather and weather.get("temp_c"):
             temp = weather.get("temp_c")
             condition = weather.get("condition", "")
             response += f"   🌡️ {temp}°C {condition}\n"
         
-        map_url = item.get("map_url")
-        if map_url:
-            response += f"   🗺️ {map_url}\n"
         response += "\n"
     
-    response += "💡 พิมพ์ 'รีวิว [ชื่อสถานที่]' หรือ '1', '2' เพื่อดูรายละเอียด"
+    response += "💡 คลิกที่การ์ดด้านล่างเพื่อดูรูปภาพและรายละเอียดเพิ่มเติม\n"
+    response += "📱 กดปุ่ม 'แผนที่' เพื่อเปิดใน Google Maps\n"
+    response += "💬 พิมพ์ 'รีวิว [ชื่อสถานที่]' เพื่ออ่านรีวิว AI"
     
     return response
 
@@ -272,18 +310,20 @@ def handle_route_request_intent(user_id: str, intent_data: dict) -> tuple:
     """จัดการ Intent: ROUTE_REQUEST"""
     state = intent_manager.get_state(user_id)
     entities = state.entities
-    
+
     origin = entities.get("origin")
     destination = entities.get("destination")
     categories = entities.get("categories", [])
     
+    # ถ้าไม่มีจุดเริ่มหรือจุดหมาย
     if not origin or not destination:
         reply_text = (
             "กรุณาระบุจุดเริ่มต้นและจุดหมายครับ\n"
             "เช่น: 'กรุงเทพ ไป เชียงใหม่'"
         )
         return reply_text, None
-    
+    print(f"🐞 Debug categories before route: {categories}")
+    # ✅ ถ้ายังไม่มีหมวดหมู่ ให้ถามก่อน (ไม่คำนวณ route)
     if not categories:
         state.mode = "route_with_stops"
         state.waiting_for_category = True
@@ -292,57 +332,67 @@ def handle_route_request_intent(user_id: str, intent_data: dict) -> tuple:
             "เลือกหมวดหมู่สถานที่ที่ต้องการแวะ:"
         )
         return reply_text, create_category_quick_reply()
-    
+
+    # ✅ ถ้ามีหมวดหมู่แล้วค่อยคำนวณเส้นทาง
     result = route_suggestions(origin, destination, categories_th=categories)
-    
     if "error" in result:
         return f"ขอโทษครับ: {result['error']}", None
-    
+
     route_info = result.get("route", {})
     stops = result.get("stops", [])
-    
+
     response = format_route_response(origin, destination, route_info, stops, categories)
-    
+
     state.last_results = stops[:MAX_PLACES]
     state.mode = None
     state.waiting_for_category = False
-    
+
+    # ✅ เก็บข้อมูลเส้นทางไว้ใน state
+    state.entities["last_route_data"] = {
+        "route": route_info,
+        "stops": stops[:5]
+    }
+
     return response, create_review_quick_reply()
+
 
 
 def handle_place_search_intent(user_id: str, intent_data: dict) -> tuple:
     """จัดการ Intent: PLACE_SEARCH"""
     state = intent_manager.get_state(user_id)
     entities = state.entities
-    
+
     province = entities.get("province")
     categories = entities.get("categories", [])
-    
+
+    # ถ้าไม่มีจังหวัด
     if not province:
         return "กรุณาระบุจังหวัดครับ เช่น: 'ที่เที่ยวในเชียงใหม่'", None
-    
+
+    # ✅ ถ้ายังไม่มีหมวดหมู่ ให้ถามก่อน
     if not categories:
         state.mode = "province_search"
         state.waiting_for_category = True
         reply_text = f"🏞️ จังหวัด: {province}\n\nเลือกหมวดหมู่สถานที่:"
         return reply_text, create_category_quick_reply()
-    
+
+    # ✅ ถ้ามีหมวดหมู่แล้วค่อยค้นหา
     result = search_by_province(province, categories_th=categories, limit=10)
-    
     if "error" in result:
         return f"ขอโทษครับ หาข้อมูล {province} ไม่เจอเลย", None
-    
+
     items = result.get("items", [])
     if not items:
         return f"ไม่เจอสถานที่ใน {province} ตามหมวดหมู่ที่เลือกครับ", None
-    
+
     response = format_place_response(province, items, categories)
-    
+
     state.last_results = items[:MAX_PLACES]
     state.mode = None
     state.waiting_for_category = False
-    
+
     return response, create_review_quick_reply()
+
 
 
 def handle_filter_request_intent(user_id: str, intent_data: dict) -> tuple:
@@ -497,6 +547,17 @@ def handle_unknown_intent(user_id: str, intent_data: dict) -> tuple:
     return reply_text, None
 
 
+def remove_markdown(text):
+    import re
+    if not text:
+        return ""
+    text = re.sub(r'(\*\*|__)(.*?)\1', r'\2', text)
+    text = re.sub(r'(\*|_)(.*?)\1', r'\2', text)
+    text = re.sub(r'`(.*?)`', r'\1', text)
+    text = re.sub(r'^#+\s*(.*)', r'\1', text, flags=re.MULTILINE)  # ✅ เพิ่ม text
+    text = re.sub(r'!\[.*?\]\(.*?\)', '', text)
+    text = re.sub(r'\[(.*?)\]\(.*?\)', r'\1', text)
+    return text
 # ============================================
 # Flask Routes
 # ============================================
@@ -504,12 +565,57 @@ def handle_unknown_intent(user_id: str, intent_data: dict) -> tuple:
 @app.route("/")
 def home():
     return render_template("index.html")
+@app.route("/api/place_photo")
+def place_photo():
+    """ดึงภาพสถานที่จาก Google Places API"""
+    place_id = request.args.get("place_id")
+    if not place_id:
+        return jsonify({"error": "missing place_id"}), 400
 
+    # ขอ photo_reference ก่อน
+    details_url = f"https://maps.googleapis.com/maps/api/place/details/json?place_id={place_id}&fields=photo&key={GOOGLE_API_KEY}"
+    details = requests.get(details_url).json()
+    photos = details.get("result", {}).get("photos", [])
 
-@app.route('/liff/map')
-def liff_map():
-    return render_template('liff-map.html')
+    if not photos:
+        return jsonify({"error": "no photos found"}), 404
 
+    ref = photos[0]["photo_reference"]
+    photo_url = f"https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photo_reference={ref}&key={GOOGLE_API_KEY}"
+    img = requests.get(photo_url)
+
+    return send_file(BytesIO(img.content), mimetype="image/jpeg")
+
+def api_route_with_stops():
+    """
+    API สำหรับคำนวณเส้นทาง + สถานที่แนะนำ 5 แห่ง (พร้อม polyline)
+    หลังผู้ใช้เลือกหมวดหมู่เสร็จแล้ว
+    """
+    try:
+        data = request.get_json()
+        origin = data.get("origin")
+        destination = data.get("destination")
+        categories = data.get("categories", [])
+
+        if not origin or not destination:
+            return jsonify({"error": "กรุณาระบุ origin และ destination"}), 400
+
+        result = route_suggestions(origin, destination, categories_th=categories)
+
+        if "error" in result:
+            return jsonify(result), 400
+
+        # เอาเฉพาะ 5 จุดแรกพอ
+        stops = result.get("stops", [])[:5]
+        route = result.get("route", {})
+
+        return jsonify({
+            "route": route,
+            "stops": stops
+        })
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
 
 # ============================================
 # Web Chat API with Intent System
@@ -531,14 +637,12 @@ def web_chat():
         
         # Classify Intent
         intent_data = intent_manager.classify_intent(user_id, message)
-        
         intent = intent_data.get("intent")
         confidence = intent_data.get("confidence", 0.0)
+        state = intent_manager.get_state(user_id)
         
         print(f"🎯 Intent: {intent} (Confidence: {confidence:.2f})")
         print(f"📦 Entities: {json.dumps(intent_data.get('entities', {}), ensure_ascii=False)}")
-        
-        state = intent_manager.get_state(user_id)
         
         reply_text = ""
         quick_replies = []
@@ -596,6 +700,9 @@ def web_chat():
         if not reply_text:
             reply_text = "ไม่สามารถตอบได้ในขณะนี้"
         
+        # ✅ ลบ Markdown สำหรับทุก reply
+        reply_text = remove_markdown(reply_text)
+        
         print(f"🤖 Bot Reply: {reply_text[:100]}...")
         print(f"{'='*60}\n")
         
@@ -611,6 +718,8 @@ def web_chat():
                 "waiting_for_category": state.waiting_for_category
             }
         }
+        if "last_route_data" in state.entities:
+            response_data["routeData"] = state.entities["last_route_data"]
         
         return jsonify(response_data)
     

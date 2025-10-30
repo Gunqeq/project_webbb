@@ -7,10 +7,29 @@ import google.generativeai as genai
 import os
 from typing import List, Dict, Optional
 
-# Configure Gemini
+# -----------------------------
+# 🔧 Gemini Configuration
+# -----------------------------
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
+# ✅ กำหนดค่าพารามิเตอร์ที่สามารถ "จูน" ได้
+GENERATION_CONFIG = {
+    "temperature": 0.7,        
+    "top_p": 0.9,              
+    "top_k": 40,               
+    "max_output_tokens": 512,  
+}
 
+def create_gemini_model():
+    """สร้างโมเดล Gemini ที่มีพารามิเตอร์จูนไว้แล้ว"""
+    return genai.GenerativeModel(
+        model_name="gemini-2.0-flash-exp",
+        generation_config=GENERATION_CONFIG
+    )
+
+# -----------------------------
+# ✳️ ฟังก์ชันสรุปรีวิวสถานที่
+# -----------------------------
 def summarize_place_reviews(place_name: str, 
                             reviews: Optional[List[str]] = None, 
                             rating: Optional[float] = None, 
@@ -38,21 +57,28 @@ def summarize_place_reviews(place_name: str,
     
     prompt = f"""
     สรุปข้อมูลสถานที่ท่องเที่ยวต่อไปนี้แบบกระชับและน่าสนใจ:
-    
+
     ชื่อสถานที่: {place_name}
     คะแนน: {rating if rating else 'ไม่มีข้อมูล'}
     หมวดหมู่: {', '.join(categories) if categories else 'ไม่ระบุ'}
-    
+
     รีวิวจากผู้ใช้:
     {reviews_text}
-    
-    สรุปในรูปแบบ:
-    1. จุดเด่น (2-3 ประโยคสั้นๆ)
-    2. เหมาะกับใครบ้าง
-    3. คำแนะนำสำหรับการไป
-    
-    ใช้ภาษาไทยที่เป็นกันเอง ไม่เกิน 150 คำ
+
+    กรุณาสรุปโดยใช้รูปแบบดังนี้ (ห้ามใช้ Markdown หรือสัญลักษณ์พิเศษอย่าง ** หรือ #):
+
+    📍 จุดเด่น:
+    (2-3 ประโยคสั้นๆ สรุปสิ่งที่โดดเด่นของสถานที่)
+
+    👥 เหมาะกับใครบ้าง:
+    (ระบุประเภทนักท่องเที่ยว เช่น ครอบครัว คู่รัก สายคาเฟ่)
+
+    💡 คำแนะนำ:
+    (ข้อควรรู้หรือเคล็ดลับสั้นๆ สำหรับการไปเที่ยว)
+
+    ใช้ภาษาไทยแบบเป็นกันเอง ห้ามเกิน 200 คำ
     """
+
     
     try:
         response = model.generate_content(prompt)
@@ -62,18 +88,11 @@ def summarize_place_reviews(place_name: str,
         return f"สถานที่นี้มีคะแนน {rating if rating else 'ไม่มีข้อมูล'} และอยู่ในหมวด {', '.join(categories) if categories else 'ทั่วไป'}"
 
 
+# -----------------------------
+# ✳️ ฟังก์ชันสรุปสถานที่ทั้งหมด
+# -----------------------------
 def generate_place_summary(places: List[Dict], search_type: str = "province") -> str:
-    """
-    สร้างสรุปรายการสถานที่ทั้งหมด
-    
-    Args:
-        places: รายการสถานที่
-        search_type: ประเภทการค้นหา (province, route)
-    
-    Returns:
-        ข้อความสรุปจาก AI
-    """
-    model = genai.GenerativeModel('gemini-2.0-flash-exp')
+    model = create_gemini_model()
     
     places_text = "\n".join([
         f"- {p.get('name')} (คะแนน: {p.get('rating', 'N/A')})"
@@ -89,9 +108,8 @@ def generate_place_summary(places: List[Dict], search_type: str = "province") ->
     - ภาพรวมของสถานที่ทั้งหมด
     - แนวทางการเลือกไปเที่ยว
     
-    ไม่เกิน 100 คำ ใช้ภาษาไทยเป็นกันเอง
+    ไม่เกิน 200 คำ ใช้ภาษาไทยเป็นกันเอง
     """
-    
     try:
         response = model.generate_content(prompt)
         return response.text.strip()
@@ -100,17 +118,11 @@ def generate_place_summary(places: List[Dict], search_type: str = "province") ->
         return "กำลังวิเคราะห์ข้อมูล..."
 
 
+# -----------------------------
+# ✳️ ฟังก์ชันถามทั่วไป
+# -----------------------------
 def ask_gemini_general(prompt: str) -> str:
-    """
-    ถามคำถามทั่วไปกับ Gemini (ไม่เกี่ยวกับสถานที่เฉพาะ)
-    
-    Args:
-        prompt: คำถามจากผู้ใช้
-    
-    Returns:
-        คำตอบจาก AI
-    """
-    model = genai.GenerativeModel('gemini-2.0-flash-exp')
+    model = create_gemini_model()
     
     full_prompt = f"""
     คุณคือผู้ช่วยท่องเที่ยวที่เป็นมิตรและมีความรู้เกี่ยวกับการท่องเที่ยวในประเทศไทย
@@ -120,7 +132,6 @@ def ask_gemini_general(prompt: str) -> str:
     
     ใช้ภาษาไทย ไม่เกิน 200 คำ ตอบแบบเป็นกันเอง
     """
-    
     try:
         response = model.generate_content(full_prompt)
         return response.text.strip()
@@ -129,21 +140,13 @@ def ask_gemini_general(prompt: str) -> str:
         return f"ขออภัยครับ เกิดข้อผิดพลาดในการสื่อสารกับ AI: {str(e)}"
 
 
+# -----------------------------
+# ✳️ ฟังก์ชันแนะนำสถานที่ต่อไป
+# -----------------------------
 def ask_next_place_suggestion(current_place: Optional[str] = None, 
                               province: Optional[str] = None,
                               categories: Optional[List[str]] = None) -> str:
-    """
-    แนะนำสถานที่ต่อไปที่ควรไป (ใช้กับ "ไปต่อไหนดี")
-    
-    Args:
-        current_place: สถานที่ปัจจุบันที่ผู้ใช้อยู่
-        province: จังหวัด
-        categories: หมวดหมู่ที่สนใจ
-    
-    Returns:
-        คำแนะนำสถานที่จาก AI
-    """
-    model = genai.GenerativeModel('gemini-2.0-flash-exp')
+    model = create_gemini_model()
     
     categories_text = f"หมวดหมู่ที่สนใจ: {', '.join(categories)}" if categories else ""
     
@@ -160,9 +163,8 @@ def ask_next_place_suggestion(current_place: Optional[str] = None,
     1. [ชื่อสถานที่] - เหตุผลที่ควรไป (1 ประโยค)
     2. [ชื่อสถานที่] - เหตุผลที่ควรไป (1 ประโยค)
     
-    ใช้ภาษาไทย ไม่เกิน 150 คำ เป็นกันเอง
+    ใช้ภาษาไทย ไม่เกิน 200 คำ เป็นกันเอง
     """
-    
     try:
         response = model.generate_content(prompt)
         return response.text.strip()
@@ -171,18 +173,11 @@ def ask_next_place_suggestion(current_place: Optional[str] = None,
         return "ขอโทษครับ ไม่สามารถแนะนำสถานที่ได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง"
 
 
+# -----------------------------
+# ✳️ ฟังก์ชันสนทนาต่อเนื่อง
+# -----------------------------
 def generate_conversation_response(context_chain: str, user_message: str) -> str:
-    """
-    สร้างคำตอบจาก Context Chain (ใช้เมื่อต้องการให้ AI ตอบโดยพิจารณาบริบทการสนทนา)
-    
-    Args:
-        context_chain: ประวัติการสนทนาที่ผ่านมา
-        user_message: ข้อความล่าสุดจากผู้ใช้
-    
-    Returns:
-        คำตอบจาก AI
-    """
-    model = genai.GenerativeModel('gemini-2.0-flash-exp')
+    model = create_gemini_model()
     
     prompt = f"""
     คุณคือผู้ช่วยท่องเที่ยวที่ชาญฉลาด สามารถเข้าใจบริบทการสนทนาต่อเนื่อง
@@ -196,7 +191,6 @@ def generate_conversation_response(context_chain: str, user_message: str) -> str
     ตอบคำถามโดยคำนึงถึงบริบทการสนทนาทั้งหมด
     ใช้ภาษาไทยที่เป็นกันเอง กระชับ ไม่เกิน 200 คำ
     """
-    
     try:
         response = model.generate_content(prompt)
         return response.text.strip()
@@ -205,21 +199,13 @@ def generate_conversation_response(context_chain: str, user_message: str) -> str
         return f"ขออภัยครับ เกิดข้อผิดพลาด: {str(e)}"
 
 
+# -----------------------------
+# ✳️ ฟังก์ชันทั่วไป
+# -----------------------------
 def get_gemini_response(user_message: str, prompt_prefix: str = "") -> str:
-    """
-    ฟังก์ชันทั่วไปสำหรับเรียก Gemini (backward compatible)
-    
-    Args:
-        user_message: ข้อความจากผู้ใช้
-        prompt_prefix: Prefix ที่จะเพิ่มหน้า prompt (ถ้ามี)
-    
-    Returns:
-        คำตอบจาก Gemini
-    """
-    model = genai.GenerativeModel('gemini-2.0-flash-exp')
+    model = create_gemini_model()
     
     full_prompt = f"{prompt_prefix}\n\nผู้ใช้: {user_message}\nผู้ช่วย:" if prompt_prefix else user_message
-    
     try:
         response = model.generate_content(full_prompt)
         return response.text.strip()

@@ -10,7 +10,6 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
   <link rel="icon" type="image/png" href="/static/logo.png">
-  <!-- <script src="prompt.js"></script> -->
   <style>
     :root { 
       --bg: #f8fafc; 
@@ -84,7 +83,7 @@
     }
     
     .subtitle {
-      font-size: 14px;
+      font-size: 18px;
       opacity: 0.9;
       margin: 0;
     }
@@ -314,31 +313,134 @@
     }
 
     .results-content {
-      max-height: 300px;
+      max-height: 400px;
       overflow-y: auto;
-      padding: 16px 20px;
+      padding: 12px;
     }
 
-    .place {
-      padding: 12px 0;
-      border-bottom: 1px solid var(--border);
+    /* ✅ NEW: Place Card with Image */
+    .place-card {
+      background: white;
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      cursor: pointer;
     }
-    
-    .place:last-child {
-      border-bottom: none;
+
+    .place-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     }
-    
-    .place .name {
+
+    .place-image {
+      width: 100%;
+      height: 180px;
+      object-fit: cover;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .place-content {
+      padding: 12px;
+    }
+
+    .place-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .place-number {
+      background: var(--accent);
+      color: white;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    .place-name {
       font-weight: 600;
       font-size: 14px;
-      margin-bottom: 4px;
       color: var(--text);
+      line-height: 1.4;
+      flex: 1;
     }
-    
-    .meta {
+
+    .place-rating {
+      display: flex;
+      align-items: center;
+      gap: 4px;
       font-size: 12px;
+      color: #f59e0b;
+      margin-bottom: 6px;
+    }
+
+    .place-meta {
+      font-size: 11px;
       color: var(--muted);
-      margin-bottom: 3px;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .place-meta i {
+      width: 14px;
+      text-align: center;
+    }
+
+    .category-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin: 8px 0;
+    }
+
+    .category-chip {
+      background: #e0f2fe;
+      color: #0369a1;
+      padding: 3px 8px;
+      border-radius: 10px;
+      font-size: 10px;
+      font-weight: 500;
+    }
+
+    .place-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #f0f0f0;
+    }
+
+    .place-btn {
+      flex: 1;
+      padding: 6px 12px;
+      border: 1px solid var(--border);
+      background: white;
+      border-radius: 6px;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      font-family: 'Prompt', sans-serif;
+    }
+
+    .place-btn:hover {
+      background: var(--accent);
+      color: white;
+      border-color: var(--accent);
     }
 
     #log {
@@ -488,32 +590,103 @@
       margin-bottom: 16px;
       opacity: 0.5;
     }
-
-    .category-chips {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin: 8px 0;
+    /* ===== Loading Animation ===== */
+    .loading-message {
+      animation: fadeIn 0.3s ease;
     }
 
-    .category-chip {
-      background: var(--accent);
-      color: white;
-      padding: 4px 8px;
-      border-radius: 12px;
+    .loading-bubble {
+      background: var(--bot-message);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      border-bottom-left-radius: 4px;
+      padding: 16px 20px;
+      max-width: 70%;
+    }
+
+    .loading-content {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .loading-text {
+      font-size: 14px;
+      color: var(--text);
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+    }
+
+    .loading-spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid #e5e7eb;
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-right: 8px;
+      flex-shrink: 0;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .loading-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 8px;
       font-size: 11px;
+      color: var(--muted);
+    }
+
+    .loading-step {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      opacity: 0.4;
+      transition: all 0.3s ease;
+      padding: 4px 0;
+    }
+
+    .loading-step.active {
+      opacity: 1;
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    .loading-step.active i {
+      animation: pulse 1s ease-in-out infinite;
+    }
+
+    .loading-step.completed {
+      opacity: 0.7;
+      color: var(--accent2);
+    }
+
+    .loading-step i {
+      font-size: 10px;
+      width: 14px;
+      text-align: center;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.2); }
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <!-- Chat Section -->
     <div class="chat-section">
       <div class="header">
         <div class="title">
           <span class="car-emoji">🚗</span>
           Travel Route Chatbot 
-          <span style="font-size: 12px; padding: 4px 8px; border-radius: 12px; background: #3b82f6;">Thailand</span>
+          <span style="font-size: 12px; padding: 4px 8px; border-radius: 12px; background: #777;">Thailand</span>
         </div>
         <p class="subtitle">
           พิมพ์แชทได้เลยครับ เช่น "ชลบุรี ไป เชียงใหม่ แวะไหนดี? ธรรมชาติ คาเฟ่" หรือโหมดจังหวัด: "นครนายก"
@@ -524,15 +697,15 @@
         <div class="chat-messages" id="chatMessages">
           <div class="message bot">
             <div class="message-avatar">
-        <img src="/static/logo.png" alt="Bot Logo" style="width:100%; height:100%; border-radius:50%;">
-      </div>
+  <img src="/static/logo.png" alt="Bot Logo" style="width:100%; height:100%; border-radius:50%;">
+          </div>
 
             <div class="message-bubble">
               สวัสดีครับ! ผมชื่อ Gemini Travel Assistant 🌟<br><br>
               ผมช่วยแนะนำเส้นทางและสถานที่ท่องเที่ยวได้ครับ<br><br>
               <strong>ตัวอย่างการใช้งาน:</strong><br>
               🚗 <em>"ชลบุรี ไป เชียงใหม่ แวะไหนดี? ธรรมชาติ คาเฟ่"</em><br>
-              🏛️ <em>"นครนายก มีที่ไหนดี? วัด อาหาร"</em><br><br>
+              🛕 <em>"นครนายก มีที่ไหนดี? วัด อาหาร"</em><br><br>
               เริ่มพิมพ์ได้เลยครับ!
               <div class="quick-replies">
                 <button class="quick-reply-btn" onclick="sendQuickReply('ชลบุรี ไป ระยอง แวะไหนดี? ธรรมชาติ คาเฟ่')">ตัวอย่าง: เส้นทาง</button>
@@ -544,8 +717,9 @@
         
         <div class="message bot" id="typingIndicator" style="display: none;">
           <div class="message-avatar">
-           <img src="/static/logo.png" alt="Bot Logo" style="width:100%; height:100%; border-radius:50%;">
-      </div>
+      <img src="/static/logo.png" alt="Bot Logo" style="width:100%; height:100%; border-radius:50%;">
+    </div>
+
           <div class="typing-indicator">
             <div class="typing-dots">
               <span></span>
@@ -571,7 +745,6 @@
       </div>
     </div>
 
-    <!-- Right Panel -->
     <div class="right-panel">
       <div class="right-panel-container">
         <div class="panel" id="resultsPanel">
@@ -590,7 +763,6 @@
         </div>
 
         <div class="panel map-container">
-          <h3><i class="fas fa-globe-asia"></i> แผนที่ & สถานที่</h3>
           <div id="map"></div>
         </div>
       </div>
@@ -651,6 +823,134 @@ function sendQuickReply(text) {
   sendMessage();
 }
 
+// ✅ Function to get place photo from Google Places API
+function getPlacePhotoUrl(placeId) {
+  if (!placeId) return 'https://via.placeholder.com/400x300?text=No+Image';
+  return `/api/place_photo?place_id=${encodeURIComponent(placeId)}`;
+}
+
+// เพิ่มตรงนี้หลัง let conversationHistory = [];
+let loadingMessageElement = null;
+let loadingStepInterval = null;
+let currentStep = 0;
+
+const loadingSteps = [
+  { icon: 'fa-route', text: 'วิเคราะห์เส้นทาง', duration: 800 },
+  { icon: 'fa-search-location', text: 'ค้นหาสถานที่', duration: 1200 },
+  { icon: 'fa-map-marked-alt', text: 'คำนวณระยะทาง', duration: 1000 },
+  { icon: 'fa-cloud-sun', text: 'ตรวจสอบอากาศ', duration: 600 }
+];
+
+const chatLoadingSteps = [
+  { icon: 'fa-brain', text: 'กำลังคิด...', duration: 700 },
+  { icon: 'fa-search', text: 'ค้นหาข้อมูล', duration: 900 },
+  { icon: 'fa-lightbulb', text: 'วิเคราะห์คำถาม', duration: 800 },
+  { icon: 'fa-comment-dots', text: 'เตรียมคำตอบ', duration: 600 }
+];
+
+function showLoadingMessage(message = 'กำลังประมวลผล...', customSteps = null) {
+  hideLoadingMessage();
+  
+  // ✅ แก้ไข: ใช้ chatLoadingSteps เป็น default สำหรับการแชทปกติ
+  const stepsToUse = customSteps || chatLoadingSteps;
+  
+  const messageDiv = document.createElement('div');
+  messageDiv.className = 'message bot loading-message';
+  messageDiv.id = 'loadingMessage';
+  
+  const avatar = document.createElement('div');
+  avatar.className = 'message-avatar';
+  avatar.innerHTML = '<img src="/static/logo.png" alt="Bot Logo" style="width:100%; height:100%; border-radius:50%;">';
+  
+  const bubble = document.createElement('div');
+  bubble.className = 'message-bubble loading-bubble';
+  
+  bubble.innerHTML = `
+    <div class="loading-content">
+      <div class="loading-text">
+        <span class="loading-spinner"></span>
+        ${message}
+      </div>
+      <div class="loading-steps" id="loadingSteps">
+        ${stepsToUse.map((step, idx) => `
+          <div class="loading-step" data-step="${idx}">
+            <i class="fas ${step.icon}"></i>
+            <span>${step.text}</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+  
+  messageDiv.appendChild(avatar);
+  messageDiv.appendChild(bubble);
+  
+  chatMessages.appendChild(messageDiv);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+  
+  loadingMessageElement = messageDiv;
+  currentStep = 0;
+  
+  // ส่ง steps ไปให้ animateLoadingSteps
+  animateLoadingSteps(stepsToUse);
+}
+
+function animateLoadingSteps(stepsData = chatLoadingSteps) { // แก้ไข default เป็น chatLoadingSteps
+  // ต้องใช้ document.getElementById('loadingMessage') แทน document.querySelectorAll('.loading-step') 
+  // เพราะ steps ถูกสร้างใหม่ทุกครั้งที่เรียก showLoadingMessage
+  const stepsContainer = loadingMessageElement ? loadingMessageElement.querySelector('.loading-steps') : null;
+  const steps = stepsContainer ? stepsContainer.querySelectorAll('.loading-step') : [];
+
+  if (loadingStepInterval) {
+    clearTimeout(loadingStepInterval);
+    loadingStepInterval = null;
+  }
+  
+  function activateStep(index) {
+    if (!loadingMessageElement || steps.length === 0) return; 
+
+    if (index >= steps.length) {
+      // Loop the animation
+      steps.forEach(s => {
+        s.classList.remove('active', 'completed');
+      });
+      currentStep = 0;
+      setTimeout(() => activateStep(0), 300);
+      return;
+    }
+    
+    // Mark previous step as completed
+    if (index > 0) {
+      steps[index - 1].classList.remove('active');
+      steps[index - 1].classList.add('completed');
+    }
+    
+    // Activate current step
+    steps[index].classList.add('active');
+    currentStep = index;
+    
+    loadingStepInterval = setTimeout(() => {
+      activateStep(index + 1);
+    }, stepsData[index].duration);
+  }
+  
+  activateStep(0);
+}
+
+function hideLoadingMessage() {
+  if (loadingStepInterval) {
+    clearTimeout(loadingStepInterval);
+    loadingStepInterval = null;
+  }
+  
+  if (loadingMessageElement) {
+    loadingMessageElement.remove();
+    loadingMessageElement = null;
+  }
+  
+  currentStep = 0;
+}
+
 // ============================================
 // Main Process Message Function (ใช้ Intent API)
 // ============================================
@@ -658,17 +958,23 @@ async function sendMessage() {
   const message = chatInput.value.trim();
   if (!message) return;
 
-  // Add user message to chat
   addMessage(message, 'user');
   chatInput.value = '';
   chatInput.style.height = 'auto';
   sendBtn.disabled = true;
 
-  // Show typing indicator
-  showTyping();
+  // ✅ NEW LOGIC: ตรวจสอบข้อความเพื่อเลือก Loading Steps ที่ถูกต้อง
+  const routeKeywords = ['เส้นทาง', 'ไป', 'แวะ', 'คำนวณ'];
+  // ตรวจสอบว่าข้อความมีคำสำคัญของการคำนวณเส้นทางหรือไม่
+  const isRouteQuery = routeKeywords.some(keyword => message.includes(keyword)); 
+
+  const stepsToUse = isRouteQuery ? loadingSteps : chatLoadingSteps;
+  const loadMessage = isRouteQuery ? 'กำลังคำนวณเส้นทางและจุดแวะ...' : 'กำลังประมวลผลคำขอของคุณ...';
+  
+  // เรียก showLoadingMessage เพียงครั้งเดียวด้วย steps ที่เลือก
+  showLoadingMessage(loadMessage, stepsToUse);
 
   try {
-    // เรียกใช้ Web Chat API (Intent System)
     const response = await fetch('/api/web_chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -684,23 +990,30 @@ async function sendMessage() {
       throw new Error(data.error);
     }
     
-    // Hide typing indicator
-    hideTyping();
+    hideLoadingMessage();
     
-    // Log intent info
     logInfo(`🎯 Intent: ${data.intent} (${(data.confidence * 100).toFixed(0)}%)`);
     
-    // Add bot response
     addMessage(data.text, 'bot', data.quickReplies || []);
     
-    // Update results panel if applicable
     if (data.results && data.results.length > 0) {
       updateResultsPanel(data.results);
       logSuccess(`✅ พบผลลัพธ์ ${data.results.length} รายการ`);
     }
 
+    if (data.routeData && data.routeData.route && data.routeData.route.polyline) {
+      const routeInfo = data.routeData.route;
+      const stops = data.routeData.stops || [];
+
+      drawRoute(routeInfo.polyline);
+      clearMarkers();
+      stops.forEach((s, idx) => addPlace(s, idx + 1));
+
+      logRoute(`🗺️ วาดเส้นทาง ${routeInfo.distance_text} (${routeInfo.duration_text}) พร้อม ${stops.length} จุดแวะ`);
+    }
+
   } catch (error) {
-    hideTyping();
+    hideLoadingMessage();
     addMessage('ขอโทษครับ เกิดข้อผิดพลาดในการประมวลผล กรุณาลองใหม่อีกครั้ง', 'bot');
     logError(`เกิดข้อผิดพลาด: ${error.message}`);
   }
@@ -710,13 +1023,14 @@ function addMessage(text, sender, quickReplies = []) {
   const messageDiv = document.createElement('div');
   messageDiv.className = `message ${sender}`;
   
-  const avatar = document.createElement('div');
-  avatar.className = 'message-avatar';
-  if (sender === 'user') {
-    avatar.textContent = '👤';
-  } else {
-    avatar.innerHTML = '<img src="/static/logo.png" alt="Bot Logo" style="width:100%; height:100%; border-radius:50%;">';
-  }
+const avatar = document.createElement('div');
+avatar.className = 'message-avatar';
+if (sender === 'user') {
+  avatar.textContent = '👤';
+} else {
+  avatar.innerHTML = '<img src="/static/logo.png" alt="Bot Logo" style="width:100%; height:100%; border-radius:50%;">';
+}
+
   
   const bubble = document.createElement('div');
   bubble.className = 'message-bubble';
@@ -745,15 +1059,16 @@ function addMessage(text, sender, quickReplies = []) {
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
-function showTyping() {
-  typingIndicator.style.display = 'flex';
-  chatMessages.scrollTop = chatMessages.scrollHeight;
-}
+// function showTyping() {
+//   typingIndicator.style.display = 'flex';
+//   chatMessages.scrollTop = chatMessages.scrollHeight;
+// }
 
-function hideTyping() {
-  typingIndicator.style.display = 'none';
-}
+// function hideTyping() {
+//   typingIndicator.style.display = 'none';
+// }
 
+// ✅ NEW: Update Results Panel with Image Cards
 function updateResultsPanel(results) {
   const resultsContent = document.getElementById('searchResults');
   
@@ -773,24 +1088,102 @@ function updateResultsPanel(results) {
   results.slice(0, 10).forEach((item, index) => {
     addPlace(item, index + 1);
     
-    const categories = item.categories ? 
-      item.categories.slice(0, 3).map(cat => `<span class="category-chip">${cat}</span>`).join('') : '';
+    const photoUrl = getPlacePhotoUrl(item.place_id || null);
+    const rating = item.rating || '-';
+    const reviewCount = item.user_ratings_total || 0;
+    const address = item.address || '';
+    const shortAddress = address.length > 50 ? address.substring(0, 50) + '...' : address;
+    const categories = item.categories || [];
+    const detour = item.detour_minutes_est;
+    const weather = item.weather;
+    const mapUrl = item.map_url || '';
     
     html += `
-      <div class="place">
-        <div class="name">${index + 1}. ${item.name || 'ไม่ระบุชื่อ'}</div>
-        <div class="meta">📍 ${item.address || ''}</div>
-        <div class="meta">⭐ ${item.rating || '-'} (${item.user_ratings_total || 0} รีวิว)</div>
-        ${categories ? `<div class="category-chips">${categories}</div>` : ''}
-        ${item.detour_minutes_est ? `<div class="meta">⏱️ เลี่ยงทางหลัก ~${item.detour_minutes_est} นาที</div>` : ''}
-        ${item.weather && item.weather.temp_c ? `<div class="meta">🌡️ ${item.weather.temp_c}°C ${item.weather.condition || ''}</div>` : ''}
+      <div class="place-card" onclick="focusOnPlace(${index})">
+        <img src="${photoUrl}" alt="${item.name}" class="place-image" onerror="this.src='https://via.placeholder.com/400x300?text=No+Image'">
+        
+        <div class="place-content">
+          <div class="place-header">
+            <div class="place-number">${index + 1}</div>
+            <div class="place-name">${item.name || 'ไม่ระบุชื่อ'}</div>
+          </div>
+          
+          <div class="place-rating">
+            <i class="fas fa-star"></i>
+            <span>${rating}</span>
+            <span style="color: var(--muted); font-size: 11px;">(${reviewCount} รีวิว)</span>
+          </div>
+          
+          ${address ? `
+            <div class="place-meta">
+              <i class="fas fa-map-marker-alt"></i>
+              <span>${shortAddress}</span>
+            </div>
+          ` : ''}
+          
+          ${detour ? `
+            <div class="place-meta">
+              <i class="fas fa-clock"></i>
+              <span>เลี่ยงทางหลัก ~${detour} นาที</span>
+            </div>
+          ` : ''}
+          
+          ${weather && weather.temp_c ? `
+            <div class="place-meta">
+              <i class="fas fa-cloud-sun"></i>
+              <span>${weather.temp_c}°C ${weather.condition || ''}</span>
+            </div>
+          ` : ''}
+          
+          ${categories.length > 0 ? `
+            <div class="category-chips">
+              ${categories.slice(0, 3).map(cat => `
+                <span class="category-chip">${cat}</span>
+              `).join('')}
+            </div>
+          ` : ''}
+          
+          <div class="place-actions">
+            <button class="place-btn" onclick="event.stopPropagation(); openMap('${mapUrl}')">
+              <i class="fas fa-map-marker-alt"></i> แผนที่
+            </button>
+            <button class="place-btn" onclick="event.stopPropagation(); askReview('${item.name.replace(/'/g, "\\'")}')">
+              <i class="fas fa-comment"></i> รีวิว
+            </button>
+          </div>
+        </div>
       </div>
     `;
   });
   
   resultsContent.innerHTML = html;
+  logSuccess(`✅ แสดงผล ${results.length} สถานที่พร้อมรูปภาพและปุ่มแผนที่`);
 }
 
+// ✅ Helper functions for place cards
+function openMap(mapUrl) {
+  if (mapUrl && mapUrl !== '') {
+    window.open(mapUrl, '_blank');
+    logInfo('🗺️ เปิด Google Maps');
+  } else {
+    logWarning('⚠️ ไม่มีลิงก์แผนที่สำหรับสถานที่นี้');
+  }
+}
+
+function askReview(placeName) {
+  if (placeName) {
+    chatInput.value = `รีวิว ${placeName}`;
+    sendMessage();
+  }
+}
+
+function focusOnPlace(index) {
+  if (markers[index]) {
+    markers[index].openPopup();
+    map.setView(markers[index].getLatLng(), 14);
+    logInfo(`📍 โฟกัสที่สถานที่ที่ ${index + 1}`);
+  }
+}
 // ============================================
 // Map Functions
 // ============================================
@@ -988,7 +1381,7 @@ function resetConversation() {
       'ผมช่วยแนะนำเส้นทางและสถานที่ท่องเที่ยวได้ครับ<br><br>' +
       '<strong>ตัวอย่างการใช้งาน:</strong><br>' +
       '🚗 <em>"ชลบุรี ไป เชียงใหม่ แวะไหนดี? ธรรมชาติ คาเฟ่"</em><br>' +
-      '🏛️ <em>"นครนายก มีที่ไหนดี? วัด อาหาร"</em><br><br>' +
+      '🛕 <em>"นครนายก มีที่ไหนดี? วัด อาหาร"</em><br><br>' +
       'เริ่มพิมพ์ได้เลยครับ!',
       'bot',
       ['ตัวอย่าง: เส้นทาง', 'ตัวอย่าง: จังหวัด']
@@ -1031,7 +1424,7 @@ document.addEventListener('DOMContentLoaded', function() {
   const resetBtn = document.createElement('button');
   resetBtn.textContent = '🔄 เริ่มใหม่';
   resetBtn.className = 'quick-reply-btn';
-  resetBtn.style.cssText = 'position: fixed; bottom: 20px; right: 420px; z-index: 1000; background: #ef4444; color: white; border: none;';
+  resetBtn.style.cssText = 'position: fixed; bottom: 20px; right: 420px; z-index: 1000; background: #777; color: white; border: none;';
   resetBtn.onclick = resetConversation;
   document.body.appendChild(resetBtn);
 });

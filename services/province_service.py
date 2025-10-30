@@ -48,7 +48,8 @@ def search_by_province(province: str, categories_th=None, limit=20):
             "categories": cats
         })
         items.sort(key=lambda x: (
-        -(x.get("user_ratings_total") or 0)
-        -(x.get("rating") or 0),      
-    ))
+    -(x.get("user_ratings_total") or 0),
+    -(x.get("rating") or 0)
+))
+    print(f"✅ Found {len(items)} places for {province}")
     return {"province": province, "items": items}

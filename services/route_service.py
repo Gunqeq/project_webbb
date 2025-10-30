@@ -17,7 +17,7 @@ from config import GOOGLE_MAPS_API_KEY
 
 # *** MODIFIED FUNCTION SIGNATURE ***
 def route_suggestions(origin, destination, categories_th=None, mode="driving",
-                      search_radius_m=2000, per_point=5, max_detour_km=15): # Added max_detour_km
+                      search_radius_m=20000, per_point=5, max_detour_km=15): # Added max_detour_km
     if not GOOGLE_MAPS_API_KEY:
         return {"error": "GOOGLE_MAPS_API_KEY not configured"}
 
