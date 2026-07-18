@@ -55,9 +55,6 @@ python test_intent.py
 python test_prompt.py
 ```
 
-## 📸 Screenshots
-
-_(เพิ่ม screenshot หน้าจอ chatbot ตรงนี้)_
 
 ## 👤 Author
 
